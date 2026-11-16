@@ -33,9 +33,9 @@ jobs:
           poetry run ruff check src tests
           poetry run ruff format --check src tests
       - name: Run unit tests
-        run: poetry run pytest tests/unit --junitxml=test-results/unit.xml -q
+        run: poetry run pytest -m unit --junitxml=test-results/unit.xml -q
       - name: Run framework integration tests with real headless Chrome
-        run: poetry run pytest tests/integration --run-ui --headless --alluredir=allure-results --junitxml=test-results/integration.xml -q
+        run: poetry run pytest -m integration --run-ui --headless --alluredir=allure-results --junitxml=test-results/integration.xml -q
       - name: Upload diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v4

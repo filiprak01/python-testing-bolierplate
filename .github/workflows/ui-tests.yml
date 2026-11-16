@@ -44,8 +44,8 @@ jobs:
           set -euo pipefail
           args=(--run-ui --headless --alluredir=allure-results)
           case "$SUITE" in
-            smoke) poetry run pytest tests/examples "${args[@]}" ;;
-            local) poetry run pytest tests/integration/test_local_browser.py "${args[@]}" ;;
+            smoke) poetry run pytest -m "example and smoke" "${args[@]}" ;;
+            local) poetry run pytest -m "integration and ui" "${args[@]}" ;;
             all) poetry run pytest "${args[@]}" ;;
             *) echo "Unknown suite: $SUITE"; exit 1 ;;
           esac

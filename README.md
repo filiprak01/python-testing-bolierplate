@@ -17,7 +17,8 @@ the implemented behavior to its source files and unit/integration coverage.
 | [Current capabilities](#current-capabilities) | What this baseline already implements. |
 | [Next task additions](#what-the-next-tasks-add) | REST and PostgreSQL/SSH functionality that remains to be built. |
 | [Poetry setup](#setup-with-poetry) | Runtime selection, locked installation, and environment checks. |
-| [Framework tests and UI examples](#run-and-verify) | Separate directories and commands for unit tests, integration tests, and the public application example. |
+| [Framework tests and UI examples](#run-and-verify) | Marker expressions for unit, integration, functional, and application example checks. |
+| [Test markers](#test-markers) | Classification, current test counts, and conventions for new tests. |
 | [Configuration reference](#configuration) | YAML, environment overrides, precedence, and supported values. |
 | [Source layout and extension points](#layout-and-extension-points) | Where to add clients, configuration, tests, and application coverage. |
 | [Evidence and reports](#evidence-and-reports) | Logs, screenshots, cleanup, Allure commands, and current limitations. |
@@ -78,28 +79,33 @@ poetry env info --path
 
 ## Run and verify
 
-Framework capability tests and the example application test are separate:
+Select tests by their explicit pytest markers. Directories organize files; they
+do not determine a test's classification or whether it is selected.
 
-| Test area | Location | What it verifies |
-| --- | --- | --- |
-| Framework unit tests | `tests/unit/` | Configuration boundaries, client ownership, browser options, assertions, and evidence error handling. No browser or network service. |
-| Framework integration tests | `tests/integration/` | YAML/environment/filesystem/log integration, plus real local Chrome interaction, screenshots, downloads, and negative assertion diagnostics. |
-| Application UI example | `tests/examples/` | The public Shopify homepage example. It is independent of framework capability verification. |
+| Test area | Marker expression | Current cases | What it verifies |
+| --- | --- | --- | --- |
+| Framework unit tests | `unit` | 37 | Configuration boundaries, client ownership, browser options, assertions, and evidence error handling. No browser or network service. |
+| Framework component integration | `integration and not ui` | 7 | Real YAML, environment variables, filesystem, and logging with substituted browser/report boundaries. |
+| Framework browser integration | `integration and ui` | 3 | Local Chrome interaction, screenshots, downloads, and negative assertion diagnostics. |
+| All framework capabilities | `framework` | 47 | All unit and integration checks, independent of the public application. |
+| Application UI example | `example` | 1 | The public Shopify homepage functional smoke example. |
 
 **Verify framework capabilities only**, including real local Chrome integration:
 
 ```text
-poetry run pytest tests/unit tests/integration --run-ui --headless -q
+poetry run pytest -m framework --run-ui --headless -q
 ```
 
 **Run the application UI example only:**
 
 ```text
-poetry run pytest tests/examples --run-ui --headless -q
+poetry run pytest -m example --run-ui --headless -q
 ```
 
-Selecting the two framework directories never selects the public application example.
-The `example` marker also allows `-m "not example"` to exclude application examples.
+The `framework` selection excludes the public application example. Markers can be
+combined with `and`, `or`, `not`, and parentheses; quote compound expressions.
+For example, `-m "unit or integration"` currently selects the same 47 framework checks.
+`-m` selects tests; `--run-ui` separately permits browser execution.
 
 Run the default suite. Browser tests are explicitly skipped until `--run-ui` is supplied:
 
@@ -110,20 +116,20 @@ poetry run pytest -q
 Run isolated unit tests or component integration tests without a browser:
 
 ```text
-poetry run pytest tests/unit -q
-poetry run pytest tests/integration -m "not ui" -q
+poetry run pytest -m unit -q
+poetry run pytest -m "integration and not ui" -q
 ```
 
 Run every framework integration test, including the local browser checks:
 
 ```text
-poetry run pytest tests/integration --run-ui --headless -q
+poetry run pytest -m integration --run-ui --headless -q
 ```
 
 Run the complete deterministic baseline, including real headless Chrome tests:
 
 ```text
-poetry run pytest tests/unit tests/integration --run-ui --headless --alluredir=allure-results -q
+poetry run pytest -m framework --run-ui --headless --alluredir=allure-results -q
 ```
 
 The local browser tests start and stop a temporary HTTP server bound to `127.0.0.1`.
@@ -136,13 +142,13 @@ outputs with a substituted browser boundary; the local-browser tests use real Ch
 Run only those real-browser integration tests:
 
 ```text
-poetry run pytest tests/integration/test_local_browser.py --run-ui --headless --alluredir=allure-results -q
+poetry run pytest -m "integration and ui" --run-ui --headless --alluredir=allure-results -q
 ```
 
 Run the public homepage smoke test separately:
 
 ```text
-poetry run pytest tests/examples --run-ui --headless --alluredir=allure-results -q
+poetry run pytest -m "example and smoke" --run-ui --headless --alluredir=allure-results -q
 ```
 
 The public smoke target is `https://sauce-demo.myshopify.com/`, a Shopify demonstration
@@ -158,16 +164,56 @@ Other useful commands:
 
 ```text
 poetry run pytest --collect-only -q
-poetry run pytest -m unit -q
-poetry run pytest -m "integration and not ui" -q
+poetry run pytest --collect-only -m framework -q
+poetry run pytest -m "functional and framework" --run-ui --headless -q
 poetry run ruff check src tests
 poetry run ruff format --check src tests
 poetry build
 ```
 
-Registered markers are `unit`, `integration`, `ui`, `smoke`, `regression`, `e2e`,
-`example`, and `slow`. Register new markers in `pytest.ini` before using them; strict marker
-validation is enabled. Mark browser tests `ui` so they follow the explicit opt-in.
+The functional framework selection above runs the two local form/download checks.
+The default command reports 44 passes and four intentional browser skips. With
+`--run-ui --headless`, the complete suite has 48 cases, including the public example.
+
+## Test markers
+
+Markers describe independent properties and can overlap:
+
+| Marker | Meaning | Current cases |
+| --- | --- | --- |
+| `framework` | Reusable framework capability coverage. Add either `unit` or `integration` as well. | 47 |
+| `unit` | Isolated behavior without browsers or network services. | 37 |
+| `integration` | Collaborating components or a real local browser. | 10 |
+| `functional` | Observable feature behavior: local form, local download, and public homepage. | 3 |
+| `e2e` | A complete user journey across multiple functional boundaries. | 0 |
+| `ui` | Requires a browser and the explicit `--run-ui` switch. | 4 |
+| `example` | Application examples that consume the framework. | 1 |
+| `smoke` | A quick core-behavior check; currently the public homepage. | 1 |
+| `regression` | Optional label for broader regression coverage. | 0 |
+| `slow` | Optional runtime label for slower checks. | 0 |
+
+For example, the form and download checks carry `framework`, `integration`,
+`functional`, and `ui`. The public homepage carries `example`, `functional`, `ui`,
+and `smoke`. `-m functional --run-ui --headless` includes that public site;
+add `and framework` for local-only functional checks.
+
+No current test is marked `e2e`: the homepage smoke check does not verify a complete
+business journey. Add `e2e` when implementing one. An expression matching no tests
+(currently `-m e2e`) returns pytest exit code 5, not a passing test result.
+
+Declare marks directly on the test or module; moving a file must not change its
+classification. A framework integration module using Chrome can declare:
+
+```python
+import pytest
+
+pytestmark = [pytest.mark.framework, pytest.mark.integration, pytest.mark.ui]
+```
+
+Add `@pytest.mark.functional` to individual feature checks. Keep `framework` and
+`example` separate, and choose one of `unit` or `integration` for framework coverage.
+Register new markers in `pytest.ini` before using them; strict marker validation is
+enabled. Browser tests must carry `ui` so they follow the explicit opt-in.
 
 ## Configuration
 
@@ -192,7 +238,7 @@ Example in PowerShell:
 
 ```powershell
 $env:TEST_HEADLESS = "true"
-poetry run pytest tests/integration/test_local_browser.py --run-ui -q
+poetry run pytest -m "integration and ui" --run-ui -q
 Remove-Item Env:TEST_HEADLESS
 ```
 
@@ -273,11 +319,13 @@ the previous generated evidence.
 
 `baseline.yml` checks Poetry metadata, Ruff, and the deterministic unit/integration
 suite with headless Chrome on Ubuntu and Windows for pull requests and `main`/`dev`
-pushes. Unit and integration tests are separate CI steps with separate JUnit reports.
+pushes. Unit and integration tests use `-m unit` and `-m integration` in separate
+CI steps with separate JUnit reports.
 It uploads raw Allure results, JUnit XML, screenshots, and logs even on failures.
 
 `ui-tests.yml` runs the public smoke suite daily at 04:00 UTC or manually. Manual
-choices are `smoke`, `local`, and `all`. It also generates and uploads a static
+choices are `smoke` (`example and smoke`), `local` (`integration and ui`), and
+`all` (every test). It also generates and uploads a static
 Allure report. These workflows require no stored credentials for the current tests.
 
 Install the optional pre-commit checks with `poetry run pre-commit install`.

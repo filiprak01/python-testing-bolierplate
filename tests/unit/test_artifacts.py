@@ -6,7 +6,7 @@ import pytest
 
 from evidence.artifacts import clean_artifact_directory
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.framework, pytest.mark.unit]
 
 
 def test_cleanup_removes_generated_contents_but_preserves_marker_and_siblings(

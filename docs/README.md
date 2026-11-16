@@ -23,17 +23,26 @@ example application.
 
 ## Test suite entry points
 
-| Suite | Location | Command |
+| Suite | Marker expression | Command |
 | --- | --- | --- |
-| Framework unit tests | [tests/unit](../tests/unit/) | `poetry run pytest tests/unit -q` |
-| Framework component integration, without Chrome | [tests/integration](../tests/integration/) | `poetry run pytest tests/integration -m "not ui" -q` |
-| All framework integration, including real Chrome | [tests/integration](../tests/integration/) | `poetry run pytest tests/integration --run-ui --headless -q` |
-| All framework capabilities | [unit](../tests/unit/) and [integration](../tests/integration/) | `poetry run pytest tests/unit tests/integration --run-ui --headless -q` |
-| Public application UI example | [tests/examples](../tests/examples/) | `poetry run pytest tests/examples --run-ui --headless -q` |
+| Framework unit tests (37) | `unit` | `poetry run pytest -m unit -q` |
+| Framework component integration, without Chrome (7) | `integration and not ui` | `poetry run pytest -m "integration and not ui" -q` |
+| All framework integration, including real Chrome (10) | `integration` | `poetry run pytest -m integration --run-ui --headless -q` |
+| Local browser integration (3) | `integration and ui` | `poetry run pytest -m "integration and ui" --run-ui --headless -q` |
+| All framework capabilities (47) | `framework` | `poetry run pytest -m framework --run-ui --headless -q` |
+| Local functional checks (2) | `functional and framework` | `poetry run pytest -m "functional and framework" --run-ui --headless -q` |
+| Public application UI example (1) | `example` | `poetry run pytest -m example --run-ui --headless -q` |
 
-The example application test remains a separate `ui`/`example`/`smoke` test. It
+Markers control selection; directories only organize source files. See the
+[marker reference and classification rules](../README.md#test-markers) for the full
+taxonomy, overlaps, and how to mark new tests. All existing framework checks carry
+`framework` and either `unit` or `integration`; browser checks also carry `ui`.
+
+The example application test remains a separate `ui`/`example`/`functional`/`smoke` test. It
 demonstrates how a project consumes the framework. It is not required to verify
-the framework against the local fixture.
+the framework against the local fixture. The `e2e` marker is registered for complete
+user journeys; no such journey is implemented yet. An empty selection exits with
+code 5. Use `poetry run pytest --collect-only -m framework -q` to preview selection.
 
 ## Setup, configuration, and evidence
 

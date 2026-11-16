@@ -7,7 +7,7 @@ import pytest
 
 from models.configuration import FrameworkConfig
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.framework, pytest.mark.unit]
 
 
 def test_optional_browser_and_evidence_values_have_real_defaults(

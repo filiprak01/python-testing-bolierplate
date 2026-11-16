@@ -7,7 +7,7 @@ from selenium.webdriver.chrome.webdriver import WebDriver
 
 from evidence import pytest_logging
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.framework, pytest.mark.unit]
 
 
 def test_screenshot_error_does_not_discard_page_source_or_browser_logs(

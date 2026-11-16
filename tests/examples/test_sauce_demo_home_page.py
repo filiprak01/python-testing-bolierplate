@@ -11,6 +11,7 @@ from pages.sauce_demo_home_page import SauceDemoHomePage
 @pytest.mark.smoke
 @pytest.mark.ui
 @pytest.mark.example
+@pytest.mark.functional
 @allure.feature("Sauce Demo")
 @allure.story("Home page loading")
 def test_sauce_demo_home_page_loads(

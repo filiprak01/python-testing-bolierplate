@@ -11,7 +11,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from clients.client_pool import UIClientPool
 from clients.ui_client import UIClient
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.framework, pytest.mark.unit]
 
 
 def test_client_context_closes_browser_after_test_error() -> None:

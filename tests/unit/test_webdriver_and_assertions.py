@@ -12,7 +12,7 @@ from assertions import page_assertions
 from webdriver import factory
 from webdriver.chrome_options import build_chrome_options
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.framework, pytest.mark.unit]
 
 
 def test_chrome_options_configure_headless_and_absolute_download_paths(tmp_path: Path) -> None:

@@ -18,7 +18,7 @@ from models.configuration import FrameworkConfig
 from pages.base_page import BasePage
 from project import FIXTURES_PATH
 
-pytestmark = [pytest.mark.integration, pytest.mark.ui]
+pytestmark = [pytest.mark.framework, pytest.mark.integration, pytest.mark.ui]
 
 
 class SandboxPage(BasePage):
@@ -52,6 +52,7 @@ def sandbox_url() -> Generator[str, None, None]:
         thread.join(timeout=5)
 
 
+@pytest.mark.functional
 def test_browser_form_and_screenshot(ui_client: UIClient, sandbox_url: str) -> None:
     with ui_client.step("Open the local application"):
         ui_client.open(sandbox_url)
@@ -69,6 +70,7 @@ def test_browser_form_and_screenshot(ui_client: UIClient, sandbox_url: str) -> N
     assert screenshots.pop().read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
+@pytest.mark.functional
 def test_browser_download_matches_the_committed_fixture(
     ui_client: UIClient,
     sandbox_url: str,

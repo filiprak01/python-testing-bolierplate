@@ -15,7 +15,7 @@ from evidence.artifacts import clean_artifact_directory
 from evidence.pytest_logging import attach_execution_log
 from project import DEFAULT_CONFIG_PATH
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.framework, pytest.mark.integration]
 
 
 @pytest.fixture
