@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Local testing sandbox</title>
+<style>body{font:18px system-ui;max-width:640px;margin:60px auto;padding:24px}input,button{font:inherit;padding:10px}#greeting{padding:16px;background:#e8f5ef}</style>
+<h1>Local testing sandbox</h1>
+<label for="name">Your test name</label>
+<input id="name" autocomplete="off">
+<button id="greet" type="button">Create greeting</button>
+<p id="greeting" role="status">No greeting yet.</p>
+<a id="download" href="sample.txt" download>Download sample</a>
+<script>
+document.getElementById('greet').addEventListener('click', () => {
+  document.getElementById('greeting').textContent = 'Hello, ' + document.getElementById('name').value + '!';
+});
+</script>
+</html>

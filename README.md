@@ -1,334 +1,285 @@
-# selenium-python
+# Python Testing Boilerplate
 
-Repository for a Selenium-based UI testing framework supported by Codex.
+A Python 3.12 testing foundation built around pytest, Selenium Chrome sessions,
+page objects, YAML configuration, and Allure evidence. Use it as a starting point
+for a testing project and extend the existing layers as new capabilities are needed.
 
-## Stack
+Repository: [filiprak01/python-testing-bolierplate](https://github.com/filiprak01/python-testing-bolierplate).
+The distribution installed by Poetry is named `python-testing-boilerplate`.
 
-- Python 3.12
-- Selenium
-- Chrome as the first supported browser
-- pytest
-- Allure
-- Poetry
-- Ruff
-- python-dotenv
-- YAML configuration
-- GitHub Actions
+## Documentation
 
-Current scope: this repository runs Selenium UI tests only. If API, visual, performance, or other test types are added later, document their commands in separate sections so the Selenium runbook stays clear.
+Start with the [documentation index and capability map](docs/README.md). It links
+the implemented behavior to its source files and unit/integration coverage.
 
-## Setup
+| Reference | Contents |
+| --- | --- |
+| [Current capabilities](#current-capabilities) | What this baseline already implements. |
+| [Next task additions](#what-the-next-tasks-add) | REST and PostgreSQL/SSH functionality that remains to be built. |
+| [Poetry setup](#setup-with-poetry) | Runtime selection, locked installation, and environment checks. |
+| [Framework tests and UI examples](#run-and-verify) | Separate directories and commands for unit tests, integration tests, and the public application example. |
+| [Configuration reference](#configuration) | YAML, environment overrides, precedence, and supported values. |
+| [Source layout and extension points](#layout-and-extension-points) | Where to add clients, configuration, tests, and application coverage. |
+| [Evidence and reports](#evidence-and-reports) | Logs, screenshots, cleanup, Allure commands, and current limitations. |
+| [Continuous integration](#continuous-integration) | Required baseline checks and optional public UI runs. |
 
-Check Python before creating the Poetry environment:
+## Current capabilities
 
-```bash
-python --version
-py -3.12 --version
-```
+- Named, independently owned UI clients through `UIClientPool`.
+- Headed or headless Chrome, explicit waits, page objects, and assertion helpers.
+- Validated YAML configuration, `.env` loading, and environment overrides.
+- Named Allure steps, optional step screenshots, and execution logging.
+- Screenshot, page source, browser log, and execution log attachments for failed test bodies.
+- Generated artifact cleanup that rejects paths overlapping source or static inputs.
+- Unit tests, component integration tests, and real local-browser integration tests.
+- A separate, optional public Shopify demo homepage smoke test.
 
-Create or select a Poetry environment:
+REST API clients, database clients, and SSH tunnels are extension work. They are
+not implemented in this baseline. Chrome is the only supported browser.
 
-```bash
+## What the next tasks add
+
+| Area | Available now | Planned addition |
+| --- | --- | --- |
+| UI testing | UI clients, Chrome, page objects, waits, screenshots, downloads, and Allure evidence | Reused by both extensions; retain the existing capability tests and application example. |
+| REST testing | No REST client | Configured HTTP sessions, authentication, bounded timeouts, JSON/non-JSON responses, safe request evidence, local HTTP integration tests, and opt-in public API checks. |
+| Database/SSH testing | No database client or SSH tunnel | Parameterized PostgreSQL reads, direct/tunneled connections, host-key validation, connection cleanup, safe query evidence, and disposable real-service integration tests. |
+
+The prepared baseline is published on `dev` for review and merge. Neither planned
+client is included in it. Each extension must add its own unit and integration
+tests and document the commands needed to run them.
+
+## Setup with Poetry
+
+Install [Python 3.12](https://www.python.org/downloads/) and
+[Poetry 2.x](https://python-poetry.org/docs/#installation). Poetry 2.3.0 was used
+to verify this baseline. Install Google Chrome before running browser tests.
+
+```text
+git clone --branch dev https://github.com/filiprak01/python-testing-bolierplate.git
+cd python-testing-bolierplate
 poetry env use 3.12
-```
-
-Install the locked dependencies:
-
-```bash
 poetry install
+poetry check --lock
 ```
 
-Local secrets should be provided through environment variables. Start from `.env.example` and ask the team for the real values. CI/CD secrets will be provided through GitHub Secrets.
+`poetry install` installs this checkout in editable mode and installs the locked
+development dependencies. `poetry.toml` keeps the virtual environment in `.venv`.
+Run the commands below from the checkout root. No `.env` or credentials are needed
+for the default suite or local-browser examples.
 
-The single test environment is configured in `config/default.yaml`. Paths are project-root-relative and resolved by the framework.
+On Windows, if `poetry env use 3.12` cannot find the installed interpreter, supply
+the full path to your Python 3.12 `python.exe` instead. Check the selected runtime:
 
-The source root is `src/`, with framework responsibilities kept in direct child directories: `assertions/`, `clients/`, `config/`, `flows/`, `locators/`, `logging/`, `models/`, `pages/`, and `webdriver/`; project-root-relative paths are defined in `src/project.py`. Framework capabilities are verified through browser tests against the configured test URL, starting with the Sauce Demo home-page smoke test. Broader application coverage will be added incrementally.
-
-The first page-load check waits up to 5 seconds for the Sauce Demo logo and polls once per second. Each named UI step logs its START/PASS/FAIL status in English. Screenshots are captured only through explicit screenshot steps by default, such as `UIClient.capture_screenshot_step(...)`, and are saved under `screenshots/`; failed browser tests additionally attach the execution log, page source, browser logs, and a failure screenshot.
-
-Per-step screenshots are configurable in `config/default.yaml`. The default is `screenshot_after_steps: false` so local, CI, and pipeline runs stay lighter. Testers can set it to `true` when they need screenshot documentation after every named Allure UI step.
-
-At the start of every pytest session, the framework removes generated files from `allure-results/`, `allure-report/`, `screenshots/`, `logs/`, and `data/downloads/`. Static input data under `data/uploads/` and `data/fixtures/` is preserved.
-
-Chrome is the first planned browser. Selenium Chrome setup will be implemented in the framework WebDriver factory and Chrome options modules, with browser behavior configured through YAML.
-
-## Current Run Commands
-
-Run all tests:
-
-```bash
-poetry run pytest
+```text
+poetry run python --version
+poetry env info --path
 ```
 
-Run the current smoke suite:
+## Run and verify
 
-```bash
-poetry run pytest tests/smoke
+Framework capability tests and the example application test are separate:
+
+| Test area | Location | What it verifies |
+| --- | --- | --- |
+| Framework unit tests | `tests/unit/` | Configuration boundaries, client ownership, browser options, assertions, and evidence error handling. No browser or network service. |
+| Framework integration tests | `tests/integration/` | YAML/environment/filesystem/log integration, plus real local Chrome interaction, screenshots, downloads, and negative assertion diagnostics. |
+| Application UI example | `tests/examples/` | The public Shopify homepage example. It is independent of framework capability verification. |
+
+**Verify framework capabilities only**, including real local Chrome integration:
+
+```text
+poetry run pytest tests/unit tests/integration --run-ui --headless -q
 ```
 
-Run the current Sauce Demo smoke test directly:
+**Run the application UI example only:**
 
-```bash
-poetry run pytest tests/smoke/test_sauce_demo_home_page.py
+```text
+poetry run pytest tests/examples --run-ui --headless -q
 ```
 
-Run browser tests in headless mode:
+Selecting the two framework directories never selects the public application example.
+The `example` marker also allows `-m "not example"` to exclude application examples.
 
-```bash
-poetry run pytest --headless
+Run the default suite. Browser tests are explicitly skipped until `--run-ui` is supplied:
+
+```text
+poetry run pytest -q
 ```
 
-Run the smoke marker:
+Run isolated unit tests or component integration tests without a browser:
 
-```bash
-poetry run pytest -m smoke
+```text
+poetry run pytest tests/unit -q
+poetry run pytest tests/integration -m "not ui" -q
 ```
 
-Run the UI marker:
+Run every framework integration test, including the local browser checks:
 
-```bash
-poetry run pytest -m ui
+```text
+poetry run pytest tests/integration --run-ui --headless -q
 ```
 
-Run all tests except tests marked as slow:
+Run the complete deterministic baseline, including real headless Chrome tests:
 
-```bash
-poetry run pytest -m "not slow"
+```text
+poetry run pytest tests/unit tests/integration --run-ui --headless --alluredir=allure-results -q
 ```
 
-Run tests matching a name expression:
+The local browser tests start and stop a temporary HTTP server bound to `127.0.0.1`.
+They verify a real form interaction, a saved PNG, a browser download, and a useful
+missing-element assertion failure against committed synthetic files. They do not
+require an external application.
+The component integration tests use real YAML, environment variables, and filesystem
+outputs with a substituted browser boundary; the local-browser tests use real Chrome.
 
-```bash
-poetry run pytest -k sauce_demo
+Run only those real-browser integration tests:
+
+```text
+poetry run pytest tests/integration/test_local_browser.py --run-ui --headless --alluredir=allure-results -q
 ```
 
-Collect tests without running them:
+Run the public homepage smoke test separately:
 
-```bash
-poetry run pytest --collect-only
+```text
+poetry run pytest tests/examples --run-ui --headless --alluredir=allure-results -q
 ```
 
-Run tests with verbose output:
+The public smoke target is `https://sauce-demo.myshopify.com/`, a Shopify demonstration
+store. It is a different application from `saucedemo.com`. Its availability and markup
+are controlled externally. A public-site failure does not establish that the local
+framework is broken; inspect the attached evidence and reproduce it locally.
 
-```bash
-poetry run pytest -v
-```
+Selenium Manager obtains the driver matching your installed Chrome. Its first run
+requires network access; subsequent runs can use the cached driver. The factory also
+accepts `driver_path` for environments that provide ChromeDriver explicitly.
 
-Run tests with Allure result output:
+Other useful commands:
 
-```bash
-poetry run pytest --alluredir=allure-results
-```
-
-For a clean Allure results directory on each run, use:
-
-```bash
-poetry run pytest --clean-alluredir --alluredir=allure-results
-```
-
-Run the smoke test and refresh Allure results:
-
-```bash
-poetry run pytest tests/smoke --clean-alluredir --alluredir=allure-results
-```
-
-Run the smoke test headlessly and refresh Allure results:
-
-```bash
-poetry run pytest tests/smoke --headless --clean-alluredir --alluredir=allure-results
-```
-
-The `regression` and `slow` markers are registered in `pytest.ini` for future expansion. They should be used once matching tests exist.
-
-## Allure Commands
-
-Serve a fresh Allure report from the current result files:
-
-```powershell
-allure.cmd serve allure-results
-```
-
-If PowerShell blocks scripts, run Allure through `cmd`:
-
-```powershell
-cmd /c "allure serve allure-results"
-```
-
-Do not open an old `allure-report/` directory after a new run. `allure-results/` contains raw test results for `allure serve`; `allure-report/` is a generated static report for `allure open`.
-
-Generate a static Allure report directory:
-
-```powershell
-Remove-Item -LiteralPath .\allure-report -Recurse -Force -ErrorAction SilentlyContinue
-cmd /c "allure generate allure-results -o allure-report"
-cmd /c "allure open allure-report"
-```
-
-Local runs are headed by default. GitHub Actions runs use headless mode by default.
-
-Generated downloads are cleaned at the start of each test session. Committed upload files and static fixtures remain under `data/uploads/` and `data/fixtures/`.
-
-## GitHub Actions
-
-The Selenium workflow runs only in these cases:
-
-- when a pull request targeting `main` is opened;
-- every day at 04:00 UTC, using the `smoke` marker;
-- when started manually with the `smoke`, `regression`, `e2e`, or `all` selection.
-
-Pull-request runs execute changed test modules. Changes to shared framework or test
-configuration run the smoke suite as a fallback. Documentation-only pull requests do
-not start Selenium.
-
-Every executed CI test run uses headless Chrome and creates a downloadable
-`selenium-allure-<event>-<run-number>` artifact. The artifact contains the generated
-`allure-report/`, raw `allure-results/`, and available screenshots and logs. Download and
-extract the artifact, then open the generated report with:
-
-```powershell
-cmd /c "allure open allure-report"
-```
-
-The pull-request workflow runs only on the initial opened event. Later commits, pushes,
-synchronization events, and reopened pull requests do not trigger another run.
-
-## Poetry Commands
-
-Show installed project dependencies:
-
-```bash
-poetry show
-```
-
-Show the dependency tree:
-
-```bash
-poetry show --tree
-```
-
-Check the Poetry project configuration:
-
-```bash
-poetry check
-```
-
-## Quality Commands
-
-Run Ruff checks:
-
-```bash
-poetry run ruff check .
-```
-
-Run Ruff checks on selected files:
-
-```bash
+```text
+poetry run pytest --collect-only -q
+poetry run pytest -m unit -q
+poetry run pytest -m "integration and not ui" -q
 poetry run ruff check src tests
+poetry run ruff format --check src tests
+poetry build
 ```
 
-Format with Ruff:
+Registered markers are `unit`, `integration`, `ui`, `smoke`, `regression`, `e2e`,
+`example`, and `slow`. Register new markers in `pytest.ini` before using them; strict marker
+validation is enabled. Mark browser tests `ui` so they follow the explicit opt-in.
 
-```bash
-poetry run ruff format .
+## Configuration
+
+The default configuration is `config/default.yaml`. The loader resolves relative
+paths against the checkout root and loads optional variables from `.env` without
+overwriting existing shell variables.
+
+| Variable | Behavior |
+| --- | --- |
+| `TEST_CONFIG_FILE` | Select another YAML file; a relative path is checkout-relative. |
+| `TEST_BASE_URL` | Override `environment.base_url`. |
+| `TEST_BROWSER` | Override `browser.name`; currently only `chrome` is implemented. |
+| `TEST_HEADLESS` | Override `browser.headless`; accepted values are `true` or `false`. |
+
+Passing `config_path` directly to `load_config()` takes precedence over
+`TEST_CONFIG_FILE`. Shell overrides then take precedence over YAML values. YAML
+strings can reference variables such as `${MY_TEST_URL}`; define every referenced
+variable in your shell or `.env`. A command-line `--headless` always enables headless
+mode, even if the YAML or environment says `false`.
+
+Example in PowerShell:
+
+```powershell
+$env:TEST_HEADLESS = "true"
+poetry run pytest tests/integration/test_local_browser.py --run-ui -q
+Remove-Item Env:TEST_HEADLESS
 ```
 
-Check formatting without changing files:
-
-```bash
-poetry run ruff format --check .
-```
-
-Install the Git pre-commit hook:
-
-```bash
-poetry run pre-commit install
-```
-
-After installation, every `git commit` runs the configured checks before the
-commit is created.
-
-Run pre-commit checks against staged files:
-
-```bash
-poetry run pre-commit run
-```
-
-The hook runs Ruff checks and formatting against changed Python files, then
-collects the pytest suite to verify test discovery, imports, syntax during
-collection, and pytest configuration without executing tests.
-
-Run pre-commit checks against all files:
-
-```bash
-poetry run pre-commit run --all-files
-```
-
-Run the Ruff pre-commit hooks only:
-
-```bash
-poetry run pre-commit run ruff-check --all-files
-poetry run pre-commit run ruff-format --all-files
-```
-
-## AI Council Reference
-
-The planned AI Council workflow is documented in [ai-council-plan.md](plans/ai-council-plan.md). It defines the planned subagents, question gate, user challenge loop, approval gate, and implementation-worker flow.
-
-Example planning prompt:
+## Layout and extension points
 
 ```text
-Use AI Council to review this idea. Do not implement. Ask me blocking and decision questions before producing the final plan.
-Task: <task>
+config/default.yaml             Runtime defaults
+src/project.py                  Checkout-relative paths
+src/models/configuration.py     Typed configuration and path validation
+src/config/loader.py             YAML, .env, and shell overrides
+src/clients/                    Client ownership and session lifecycle
+src/webdriver/                  Chrome options and driver creation
+src/pages/                      Page objects and explicit UI interactions
+src/locators/                   Application selectors
+src/flows/                      Place for reusable multi-page workflows
+src/assertions/                 Wait-backed UI assertions
+src/evidence/                   Allure attachments and artifact cleanup
+tests/conftest.py               pytest options, browser fixtures, and failure hook
+tests/unit/                     Isolated framework regression coverage
+tests/integration/              Component and real local-browser coverage
+tests/examples/                 Optional public application UI example
+data/fixtures/                  Committed synthetic inputs and local UI fixture
+data/uploads/                   Place for committed non-sensitive upload fixtures
 ```
 
-Example implementation prompt:
+The [capability map](docs/README.md#implemented-capabilities) links each area to
+the corresponding implementation and regression tests.
+
+Reuse `UIClient`, `BasePage`, configuration models, and pytest fixtures when adding
+coverage. Put selectors in locators/page objects, reusable behavior in pages/flows,
+and expected-state checks in assertions. Add non-UI clients under `src/clients` when
+those features are implemented. Cover client error paths with unit tests and verify
+collaborating components with integration tests. Keep public-service checks explicit
+so the default test command remains reproducible.
+
+The `evidence` package deliberately avoids Python's standard-library `logging`
+name. Framework modules use the normal standard-library logger.
+
+## Evidence and reports
+
+Every test session cleans generated files from `logs/`, `screenshots/`,
+`allure-results/`, `allure-report/`, and `data/downloads/`. `.gitkeep` files remain.
+`data/uploads/` and `data/fixtures/` are preserved. Collection-only runs do not clean
+artifacts. Keep generated directories distinct and below the project root; the
+configuration rejects source paths, static-input paths, and overlapping outputs.
+
+Set `evidence.screenshot_after_steps: true` to capture every named UI step.
+Explicit `UIClient.capture_screenshot_step()` calls work with the default `false`.
+Set `screenshots_enabled: false` to disable step screenshots. The failure hook still
+attempts browser diagnostics after a failed test body.
+
+The session log is `logs/test-execution.log`. Failure attachments currently cover
+the pytest `call` phase, and the baseline uses one log per session. Per-test log
+isolation, setup/teardown diagnostics, and parallel workers are future extensions.
+
+`allure-results/` contains raw results, not an HTML website. To view them, install
+the [Allure 2 command line](https://allurereport.org/docs/v2/) and Java 17. CI uses
+the following CLI version (requires Node.js/npm):
 
 ```text
-Use AI Council for this implementation. First run council review, collect questions and disagreements, ask me for answers, then ask for final approval. Only after approval, use implementation_worker for the approved code changes.
-Task: <task>
+npm install --global allure-commandline@2.43.0
 ```
 
-Example challenge prompt:
+Then view or generate the report:
 
 ```text
-Council challenge: <decision or assumption> is wrong because <context>. Re-run the relevant council agents and update the plan.
+allure serve allure-results
+allure generate allure-results --clean --output allure-report
+allure open allure-report
 ```
 
-## Project Plan
+On Windows use `allure.cmd` if PowerShell blocks the `allure` script. Allure CLI is
+only needed to display/generate the report; pytest and raw attachments work without it.
+Run a fresh test command before inspecting results; starting another session clears
+the previous generated evidence.
 
-See [framework-plan.md](plans/framework-plan.md) for the implementation plan and open decisions.
+## Continuous integration
 
-See [ai-council-plan.md](plans/ai-council-plan.md) for the planned AI Council workflow.
+`baseline.yml` checks Poetry metadata, Ruff, and the deterministic unit/integration
+suite with headless Chrome on Ubuntu and Windows for pull requests and `main`/`dev`
+pushes. Unit and integration tests are separate CI steps with separate JUnit reports.
+It uploads raw Allure results, JUnit XML, screenshots, and logs even on failures.
 
-See [AGENTS.md](AGENTS.md) for Codex development rules.
+`ui-tests.yml` runs the public smoke suite daily at 04:00 UTC or manually. Manual
+choices are `smoke`, `local`, and `all`. It also generates and uploads a static
+Allure report. These workflows require no stored credentials for the current tests.
 
-# UI Test Design and Selenium Implementation Skills
-
-This package provides two repository-scoped Codex skills aligned with the current Selenium Python framework.
-
-```text
-$ui-testcase-designer
-```
-
-Creates reviewed UI testcase Markdown files one at a time and records optional testcase-specific pytest marks.
-
-```text
-$selenium-test-implementer
-```
-
-Consumes one accepted testcase path, validates it against the safe running UI, resolves discrepancies with the user, discovers stable locators and existing automation, calculates cumulative pytest marks, implements approved Selenium pytest code using the current `src/` layers, and waits for user-run verification.
-
-Repository alignment:
-
-```text
-new tests       -> tests/ui/<feature_package>/
-business flows  -> src/flows/
-assertions      -> src/assertions/
-pages           -> src/pages/
-locators        -> src/locators/
-clients/config  -> existing src/clients, src/webdriver, src/config, src/models, config/default.yaml
-```
-
-Every generated UI test receives all `required_for_all` marks from the skill's marker-policy YAML; the current defaults are `ui` and `regression`. Smoke adds `smoke`, E2E adds `e2e`, and any number of registered additions are merged cumulatively and recorded in `automation_marks`.
-
-Read `INSTALL.md`, `FRAMEWORK-UPDATES.md`, and `UPGRADE-v2-to-v3.md` before merging.
+Install the optional pre-commit checks with `poetry run pre-commit install`.
+They run Ruff and pytest collection. Collection validates discovery without starting
+browsers or deleting the preceding run's evidence.
