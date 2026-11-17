@@ -88,8 +88,8 @@ class FrameworkConfig:
             base_url=_required_string(environment_values, "base_url"),
         )
         browser = BrowserConfig(
-            name=_optional_string(browser_values, "name", BrowserConfig.name),
-            headless=_optional_bool(browser_values, "headless", BrowserConfig.headless),
+            name=_optional_string(browser_values, "name", BrowserConfig().name),
+            headless=_optional_bool(browser_values, "headless", BrowserConfig().headless),
         )
         timeouts = TimeoutConfig(
             implicit_seconds=_optional_non_negative_int(
@@ -135,16 +135,17 @@ class FrameworkConfig:
             logs=_project_path(project_root, _required_string(path_values, "logs")),
             screenshots=_project_path(project_root, _required_string(path_values, "screenshots")),
         )
+        validate_artifact_paths(paths, project_root)
         evidence = EvidenceConfig(
             screenshots_enabled=_optional_bool(
                 evidence_values,
                 "screenshots_enabled",
-                EvidenceConfig.screenshots_enabled,
+                EvidenceConfig().screenshots_enabled,
             ),
             screenshot_after_steps=_optional_bool(
                 evidence_values,
                 "screenshot_after_steps",
-                EvidenceConfig.screenshot_after_steps,
+                EvidenceConfig().screenshot_after_steps,
             ),
         )
 
@@ -208,4 +209,34 @@ def _optional_positive_int(values: Mapping[str, Any], name: str, default: int) -
 
 def _project_path(project_root: Path, value: str) -> Path:
     path = Path(value)
-    return path if path.is_absolute() else project_root / path
+    return (path if path.is_absolute() else project_root / path).resolve()
+
+
+def validate_artifact_paths(paths: PathsConfig, project_root: Path) -> None:
+    """Keep automatic artifact cleanup away from source and static test inputs."""
+
+    root = project_root.resolve()
+    protected = (
+        *(root / name for name in (".git", ".github", ".venv", "src", "tests", "config", "docs")),
+        paths.uploads.resolve(),
+        paths.fixtures.resolve(),
+    )
+    artifacts = (
+        paths.downloads,
+        paths.screenshots,
+        paths.logs,
+        paths.allure_results,
+        paths.reports,
+    )
+    for directory in artifacts:
+        resolved = directory.resolve()
+        if resolved == root or not resolved.is_relative_to(root):
+            raise ValueError("Artifact directories must be inside the project, below its root.")
+        if any(
+            resolved.is_relative_to(path) or path.is_relative_to(resolved) for path in protected
+        ):
+            raise ValueError("Artifact directories must not overlap source or static input paths.")
+    for index, directory in enumerate(artifacts):
+        for other in artifacts[index + 1 :]:
+            if directory.is_relative_to(other) or other.is_relative_to(directory):
+                raise ValueError("Artifact directories must not overlap each other.")

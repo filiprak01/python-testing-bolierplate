@@ -1,100 +1,106 @@
-"""Shared pytest fixtures and Allure failure evidence for UI tests."""
+"""Shared configuration, opt-in browser fixtures, and Allure failure evidence."""
 
-import json
 import logging
-import shutil
 from collections.abc import Generator
-from contextlib import suppress
 from pathlib import Path
 
-import allure
 import pytest
-from allure_commons.types import AttachmentType
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from clients.ui_client import UIClient
 from config.loader import load_config
+from evidence.artifacts import clean_artifact_directory
+from evidence.pytest_logging import attach_browser_evidence, attach_execution_log
 from models.configuration import FrameworkConfig
 from webdriver.factory import create_webdriver
 
-PRESERVED_ARTIFACT_NAMES = frozenset({".gitkeep"})
-
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Register the supported browser-mode override."""
+    """Register explicit browser execution and headless-mode switches."""
 
-    parser.addoption(
-        "--headless",
-        action="store_true",
-        default=False,
-        help="Run browser tests in headless Chrome mode.",
-    )
+    parser.addoption("--run-ui", action="store_true", help="Run tests marked ui; requires Chrome.")
+    parser.addoption("--headless", action="store_true", help="Run browser tests without a window.")
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Keep the default suite independent of browser installations and public sites."""
+
+    if config.getoption("--run-ui"):
+        return
+    skip = pytest.mark.skip(reason="Browser tests require --run-ui and an installed Chrome.")
+    for item in items:
+        if "ui" in item.keywords:
+            item.add_marker(skip)
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
-    """Remove generated test artifacts before pytest and Allure create new output."""
+    """Clean only validated generated directories, leaving collection non-destructive."""
 
-    del session
-    config = load_config()
-    for artifact_directory in (
-        config.paths.downloads,
-        config.paths.screenshots,
-        config.paths.logs,
-        config.paths.allure_results,
-        config.paths.reports,
+    if session.config.option.collectonly:
+        return
+    paths = load_config().paths
+    for directory in (
+        paths.downloads,
+        paths.screenshots,
+        paths.logs,
+        paths.allure_results,
+        paths.reports,
     ):
-        clean_artifact_directory(artifact_directory)
+        clean_artifact_directory(directory)
 
 
 @pytest.fixture(scope="session")
 def config() -> FrameworkConfig:
-    """Load the single test-environment configuration once per session."""
+    """Load the framework configuration once per test session."""
 
     return load_config()
 
 
 @pytest.fixture(scope="session", autouse=True)
 def execution_log_path(config: FrameworkConfig) -> Generator[Path, None, None]:
-    """Configure one session file logger and expose its configured path."""
+    """Expose a session log while restoring the caller's root logging level afterward."""
 
     config.paths.logs.mkdir(parents=True, exist_ok=True)
     log_path = config.paths.logs / "test-execution.log"
-    file_handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
-    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
-
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-    root_logger.addHandler(file_handler)
+    handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logger = logging.getLogger()
+    original_level = logger.level
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
     try:
         yield log_path
     finally:
-        root_logger.removeHandler(file_handler)
-        file_handler.close()
+        logger.removeHandler(handler)
+        logger.setLevel(original_level)
+        handler.close()
 
 
 @pytest.fixture
 def driver(
-    request: pytest.FixtureRequest,
-    config: FrameworkConfig,
+    request: pytest.FixtureRequest, config: FrameworkConfig
 ) -> Generator[WebDriver, None, None]:
-    """Create and tear down one configured local browser per test."""
+    """Own one configured browser and close it even if timeout setup fails."""
 
-    headless = bool(request.config.getoption("--headless")) or config.browser.headless
+    if not request.config.getoption("--run-ui"):
+        pytest.skip("The driver fixture requires --run-ui.")
     browser = create_webdriver(
         config.browser.name,
-        headless=headless,
+        headless=bool(request.config.getoption("--headless")) or config.browser.headless,
         download_directory=config.paths.downloads,
     )
-    browser.implicitly_wait(config.timeouts.implicit_seconds)
-    browser.set_page_load_timeout(config.timeouts.page_load_seconds)
-    browser.set_script_timeout(config.timeouts.script_seconds)
-    yield browser
-    browser.quit()
+    try:
+        browser.implicitly_wait(config.timeouts.implicit_seconds)
+        browser.set_page_load_timeout(config.timeouts.page_load_seconds)
+        browser.set_script_timeout(config.timeouts.script_seconds)
+        yield browser
+    finally:
+        browser.quit()
 
 
 @pytest.fixture
 def ui_client(driver: WebDriver, config: FrameworkConfig) -> UIClient:
-    """Expose a high-level UI client to behavior-focused tests."""
+    """Wrap the fixture-owned browser with page access and evidence steps."""
 
     return UIClient(
         driver=driver,
@@ -111,72 +117,16 @@ def pytest_runtest_makereport(
     item: pytest.Item,
     call: pytest.CallInfo[object],
 ) -> Generator[None, None, None]:
-    """Attach browser evidence when a test using the driver fails."""
+    """Attach available evidence for a failed test body."""
 
     del call
     outcome = yield
     report = outcome.get_result()
     if report.when != "call" or not report.failed:
         return
-
-    execution_log = item.funcargs.get("execution_log_path")
-    if isinstance(execution_log, Path):
-        attach_execution_log(execution_log)
-
+    log_path = item.funcargs.get("execution_log_path")
+    if isinstance(log_path, Path):
+        attach_execution_log(log_path)
     browser = item.funcargs.get("driver")
-    if not isinstance(browser, WebDriver):
-        return
-
-    attach_browser_evidence(browser)
-
-
-def attach_execution_log(log_path: Path) -> None:
-    """Attach the configured execution log to a failed Allure result."""
-
-    with suppress(Exception):
-        for handler in logging.getLogger().handlers:
-            handler.flush()
-        allure.attach.file(
-            str(log_path),
-            name="execution-log",
-            attachment_type=AttachmentType.TEXT,
-        )
-
-
-def attach_browser_evidence(browser: WebDriver) -> None:
-    """Attach screenshot, page source, and browser logs to the current Allure result."""
-
-    with suppress(Exception):
-        allure.attach(
-            browser.get_screenshot_as_png(),
-            name="failure-screenshot",
-            attachment_type=AttachmentType.PNG,
-        )
-
-    with suppress(Exception):
-        allure.attach(
-            browser.page_source,
-            name="failure-page-source",
-            attachment_type=AttachmentType.HTML,
-        )
-
-    with suppress(Exception):
-        browser_logs = browser.get_log("browser")
-        allure.attach(
-            json.dumps(browser_logs, indent=2),
-            name="failure-browser-logs",
-            attachment_type=AttachmentType.JSON,
-        )
-
-
-def clean_artifact_directory(directory: Path) -> None:
-    """Remove generated files from a configured artifact directory."""
-
-    directory.mkdir(parents=True, exist_ok=True)
-    for path in directory.iterdir():
-        if path.name in PRESERVED_ARTIFACT_NAMES:
-            continue
-        if path.is_dir():
-            shutil.rmtree(path)
-        else:
-            path.unlink()
+    if isinstance(browser, WebDriver):
+        attach_browser_evidence(browser)

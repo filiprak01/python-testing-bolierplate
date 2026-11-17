@@ -1,7 +1,7 @@
 [project]
-name = "selenium-ui-testing-framework"
+name = "python-testing-boilerplate"
 version = "0.1.0"
-description = "A scalable Selenium UI testing framework."
+description = "A Python testing foundation with Selenium, pytest, and Allure evidence."
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
 dependencies = [
@@ -19,20 +19,12 @@ packages = [
     { include = "config", from = "src" },
     { include = "flows", from = "src" },
     { include = "locators", from = "src" },
-    { include = "logging", from = "src" },
+    { include = "evidence", from = "src" },
     { include = "models", from = "src" },
     { include = "pages", from = "src" },
     { include = "webdriver", from = "src" },
     { include = "project.py", from = "src" },
 ]
-
-[tool.poetry.dependencies]
-python = "^3.12"
-selenium = "^4.47.0"
-pytest = "^9.1.1"
-allure-pytest = "^2.16.0"
-pyyaml = "^6.0.3"
-python-dotenv = "^1.2.2"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.16.3"

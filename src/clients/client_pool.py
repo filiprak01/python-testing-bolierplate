@@ -70,8 +70,14 @@ class UIClientPool:
 
         clients = tuple(self._clients.values())
         self._clients.clear()
+        errors: list[Exception] = []
         for client in clients:
-            client.close()
+            try:
+                client.close()
+            except Exception as error:
+                errors.append(error)
+        if errors:
+            raise ExceptionGroup("Unable to close all UI clients", errors)
 
     def __len__(self) -> int:
         return len(self._clients)

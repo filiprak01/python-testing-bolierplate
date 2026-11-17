@@ -14,7 +14,9 @@ from project import DEFAULT_CONFIG_PATH, PROJECT_ROOT
 def load_config(config_path: Path | None = None) -> FrameworkConfig:
     """Load a YAML configuration file after loading local environment variables."""
     load_dotenv(PROJECT_ROOT / ".env")
-    selected_path = config_path or DEFAULT_CONFIG_PATH
+    selected_path = config_path or Path(os.environ.get("TEST_CONFIG_FILE", DEFAULT_CONFIG_PATH))
+    if not selected_path.is_absolute():
+        selected_path = PROJECT_ROOT / selected_path
 
     with selected_path.open(encoding="utf-8") as config_file:
         raw_values = yaml.safe_load(config_file) or {}
@@ -23,6 +25,25 @@ def load_config(config_path: Path | None = None) -> FrameworkConfig:
         raise ValueError("The root of the YAML configuration must be a mapping.")
 
     values = _expand_environment_variables(raw_values)
+    overrides = (
+        ("TEST_BASE_URL", "environment", "base_url"),
+        ("TEST_BROWSER", "browser", "name"),
+        ("TEST_HEADLESS", "browser", "headless"),
+    )
+    for variable, section_name, key in overrides:
+        value = os.environ.get(variable)
+        if not value:
+            continue
+        section = values.setdefault(section_name, {})
+        if not isinstance(section, dict):
+            raise ValueError(f"Configuration section '{section_name}' must be a mapping.")
+        if variable == "TEST_HEADLESS":
+            value = value.strip().lower()
+            if value not in {"true", "false"}:
+                raise ValueError("TEST_HEADLESS must be true or false.")
+            section[key] = value == "true"
+        else:
+            section[key] = value
     return FrameworkConfig.from_mapping(values, PROJECT_ROOT)
 
 

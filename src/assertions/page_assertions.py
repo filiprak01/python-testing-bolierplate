@@ -3,7 +3,11 @@
 import logging
 from collections.abc import Callable
 
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    StaleElementReferenceException,
+    TimeoutException,
+)
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as expected
 from selenium.webdriver.support.ui import WebDriverWait
@@ -97,13 +101,19 @@ def assert_element_text(
     """Assert that a visible element contains ``expected_text``."""
 
     def text_is_present(current_driver: WebDriver) -> bool:
-        element = current_driver.find_element(*locator)
-        return element.is_displayed() and expected_text in element.text
+        try:
+            element = current_driver.find_element(*locator)
+            return element.is_displayed() and expected_text in element.text
+        except StaleElementReferenceException:
+            return False
 
     try:
         _wait(driver, timeout, text_is_present)
     except TimeoutException as error:
-        actual_text = driver.find_element(*locator).text
+        try:
+            actual_text = driver.find_element(*locator).text
+        except (NoSuchElementException, StaleElementReferenceException):
+            actual_text = "<element missing or stale>"
         raise AssertionError(
             f"Expected element {locator!r} to contain {expected_text!r}; "
             f"actual text was {actual_text!r}."
