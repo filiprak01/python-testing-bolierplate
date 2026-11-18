@@ -1,0 +1,6 @@
+-c constraints.txt
+selenium==4.47.0
+pytest==9.1.1
+allure-pytest==2.16.0
+pyyaml==6.0.3
+python-dotenv==1.2.2

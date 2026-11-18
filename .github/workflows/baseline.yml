@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, dev]
+    branches: [main, dev, prep/pip-native-linux]
   workflow_dispatch:
 
 permissions:
@@ -23,19 +23,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install Poetry and locked dependencies
+      - name: Install pip dependencies
         run: |
-          python -m pip install poetry==2.3.0
-          poetry install --no-interaction
+          python -m pip install -r requirements-dev.txt
+          python -m pip install --no-build-isolation -e .
       - name: Check metadata and Python quality
         run: |
-          poetry check --lock
-          poetry run ruff check src tests
-          poetry run ruff format --check src tests
+          python -m pip check
+          python -m ruff check src tests
+          python -m ruff format --check src tests
+          python -m pip wheel --no-build-isolation --no-deps . --wheel-dir dist
       - name: Run unit tests
-        run: poetry run pytest -m unit --junitxml=test-results/unit.xml -q
+        run: python -m pytest -m unit --junitxml=test-results/unit.xml -q
       - name: Run framework integration tests with real headless Chrome
-        run: poetry run pytest -m integration --run-ui --headless --alluredir=allure-results --junitxml=test-results/integration.xml -q
+        run: python -m pytest -m integration --run-ui --headless --alluredir=allure-results --junitxml=test-results/integration.xml -q
       - name: Upload diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v4

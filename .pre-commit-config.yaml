@@ -12,7 +12,7 @@ repos:
     hooks:
       - id: pytest-collect
         name: pytest collection
-        entry: poetry run pytest --collect-only
+        entry: python -m pytest --collect-only
         language: system
         pass_filenames: false
         always_run: true

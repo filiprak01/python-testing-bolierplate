@@ -5,7 +5,7 @@ page objects, YAML configuration, and Allure evidence. Use it as a starting poin
 for a testing project and extend the existing layers as new capabilities are needed.
 
 Repository: [filiprak01/python-testing-bolierplate](https://github.com/filiprak01/python-testing-bolierplate).
-The distribution installed by Poetry is named `python-testing-boilerplate`.
+The distribution installed by pip is named `python-testing-boilerplate`.
 
 ## Documentation
 
@@ -15,8 +15,8 @@ the implemented behavior to its source files and unit/integration coverage.
 | Reference | Contents |
 | --- | --- |
 | [Current capabilities](#current-capabilities) | What this baseline already implements. |
-| [Next task additions](#what-the-next-tasks-add) | REST and PostgreSQL/SSH functionality that remains to be built. |
-| [Poetry setup](#setup-with-poetry) | Runtime selection, locked installation, and environment checks. |
+| [Next task additions](#what-the-next-tasks-add) | Independent REST, PostgreSQL, evidence, SSH/SFTP, and parallel-execution extensions. |
+| [pip setup](#setup-with-pip) | Runtime checks, requirements, editable installation, and restricted-network use. |
 | [Framework tests and UI examples](#run-and-verify) | Marker expressions for unit, integration, functional, and application example checks. |
 | [Test markers](#test-markers) | Classification, current test counts, and conventions for new tests. |
 | [Configuration reference](#configuration) | YAML, environment overrides, precedence, and supported values. |
@@ -35,47 +35,73 @@ the implemented behavior to its source files and unit/integration coverage.
 - Unit tests, component integration tests, and real local-browser integration tests.
 - A separate, optional public Shopify demo homepage smoke test.
 
-REST API clients, database clients, and SSH tunnels are extension work. They are
+REST API clients, database/SSH clients, SFTP processing, and parallel execution are extension work. They are
 not implemented in this baseline. Chrome is the only supported browser.
 
 ## What the next tasks add
 
 | Area | Available now | Planned addition |
 | --- | --- | --- |
-| UI testing | UI clients, Chrome, page objects, waits, screenshots, downloads, and Allure evidence | Reused by both extensions; retain the existing capability tests and application example. |
+| UI testing | UI clients, Chrome, page objects, waits, screenshots, downloads, and Allure evidence | Reused by the extensions; retain the existing capability tests and application example. |
 | REST testing | No REST client | Configured HTTP sessions, authentication, bounded timeouts, JSON/non-JSON responses, safe request evidence, local HTTP integration tests, and opt-in public API checks. |
 | Database/SSH testing | No database client or SSH tunnel | Parameterized PostgreSQL reads, direct/tunneled connections, host-key validation, connection cleanup, safe query evidence, and disposable real-service integration tests. |
+| Failure diagnostics | One session log and call-phase attachments | Per-test logs and setup/call/teardown evidence, verified with real nested pytest sessions. |
+| SSH/SFTP processing | No transfer or remote-processing client | Upload a synthetic file, run a bounded command, retrieve and verify its result using native OpenSSH. |
+| Parallel execution | Serial tests with shared artifact directories | Two-worker execution, isolated worker/run artifacts, and safe cleanup ownership. |
 
-The prepared baseline is published on `dev` for review and merge. Neither planned
-client is included in it. Each extension must add its own unit and integration
-tests and document the commands needed to run them.
+This pip preparation branch is `prep/pip-native-linux`. It changes installation
+and documentation; the proposed feature clients remain unimplemented. Start each
+remaining independent task from the recorded pip baseline. Keep current REST and
+PostgreSQL work separate; do not reset those implementations to this source.
 
-## Setup with Poetry
+## Setup with pip
 
-Install [Python 3.12](https://www.python.org/downloads/) and
-[Poetry 2.x](https://python-poetry.org/docs/#installation). Poetry 2.3.0 was used
-to verify this baseline. Install Google Chrome before running browser tests.
+Use Python 3.12 or later and an existing pip installation. Check the interpreter
+before installing: the original testing baseline requires Python 3.12+. This
+checkout uses setuptools and plain requirements; no separate package-manager CLI
+or container runtime is needed. Chrome is required only for explicit UI tests.
 
-```text
-git clone --branch dev https://github.com/filiprak01/python-testing-bolierplate.git
-cd python-testing-bolierplate
-poetry env use 3.12
-poetry install
-poetry check --lock
+Linux, from the checkout root:
+
+```bash
+python3 --version
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip --version
+python -m pip install -r requirements-dev.txt
+python -m pip install --no-build-isolation -e .
+python -m pip check
 ```
 
-`poetry install` installs this checkout in editable mode and installs the locked
-development dependencies. `poetry.toml` keeps the virtual environment in `.venv`.
-Run the commands below from the checkout root. No `.env` or credentials are needed
-for the default suite or local-browser examples.
+On Windows create the environment with your installed Python 3.12 interpreter,
+activate `.venv\Scripts\Activate.ps1`, then use the same `python -m pip` commands.
+Use `python -c "import sys; print(sys.executable)"` to confirm the interpreter.
 
-On Windows, if `poetry env use 3.12` cannot find the installed interpreter, supply
-the full path to your Python 3.12 `python.exe` instead. Check the selected runtime:
+`requirements.txt` pins direct testing dependencies. `constraints.txt` pins the
+previously verified transitive versions without installing unused packages.
+`requirements-dev.txt` adds Ruff, optional pre-commit, setuptools and wheel.
+The editable install uses those already installed build tools, so it does not
+start a second isolated build-tool download. Runtime versions remain those of
+the verified baseline; build tools have minimum versions and are checked by pip.
 
-```text
-poetry run python --version
-poetry env info --path
+If a dependency is rejected, record its name and the actual error. Use only the
+index or wheelhouse supplied by the environment. With an approved local wheelhouse,
+the dependency installation can be performed offline:
+
+```bash
+python -m pip install --no-index --find-links=/path/to/approved-wheelhouse -r requirements-dev.txt
+python -m pip install --no-build-isolation --no-deps -e .
+python -m pip check
 ```
+
+The wheelhouse must contain compatible wheels for this Python/OS and all required
+dependencies. The path above is a placeholder, not a bundled wheelhouse. Do not
+disable TLS checks, use a different unapproved mirror, or report blocked installs
+as a successful verification.
+
+Native Linux services are described in [the service runbook](docs/native-linux.md).
+REST/PostgreSQL work already in progress should retain its own current source;
+this pip baseline is for the remaining independent tasks.
 
 ## Run and verify
 
@@ -93,13 +119,13 @@ do not determine a test's classification or whether it is selected.
 **Verify framework capabilities only**, including real local Chrome integration:
 
 ```text
-poetry run pytest -m framework --run-ui --headless -q
+python -m pytest -m framework --run-ui --headless -q
 ```
 
 **Run the application UI example only:**
 
 ```text
-poetry run pytest -m example --run-ui --headless -q
+python -m pytest -m example --run-ui --headless -q
 ```
 
 The `framework` selection excludes the public application example. Markers can be
@@ -110,26 +136,26 @@ For example, `-m "unit or integration"` currently selects the same 47 framework 
 Run the default suite. Browser tests are explicitly skipped until `--run-ui` is supplied:
 
 ```text
-poetry run pytest -q
+python -m pytest -q
 ```
 
 Run isolated unit tests or component integration tests without a browser:
 
 ```text
-poetry run pytest -m unit -q
-poetry run pytest -m "integration and not ui" -q
+python -m pytest -m unit -q
+python -m pytest -m "integration and not ui" -q
 ```
 
 Run every framework integration test, including the local browser checks:
 
 ```text
-poetry run pytest -m integration --run-ui --headless -q
+python -m pytest -m integration --run-ui --headless -q
 ```
 
 Run the complete deterministic baseline, including real headless Chrome tests:
 
 ```text
-poetry run pytest -m framework --run-ui --headless --alluredir=allure-results -q
+python -m pytest -m framework --run-ui --headless --alluredir=allure-results -q
 ```
 
 The local browser tests start and stop a temporary HTTP server bound to `127.0.0.1`.
@@ -142,13 +168,13 @@ outputs with a substituted browser boundary; the local-browser tests use real Ch
 Run only those real-browser integration tests:
 
 ```text
-poetry run pytest -m "integration and ui" --run-ui --headless --alluredir=allure-results -q
+python -m pytest -m "integration and ui" --run-ui --headless --alluredir=allure-results -q
 ```
 
 Run the public homepage smoke test separately:
 
 ```text
-poetry run pytest -m "example and smoke" --run-ui --headless --alluredir=allure-results -q
+python -m pytest -m "example and smoke" --run-ui --headless --alluredir=allure-results -q
 ```
 
 The public smoke target is `https://sauce-demo.myshopify.com/`, a Shopify demonstration
@@ -163,12 +189,12 @@ accepts `driver_path` for environments that provide ChromeDriver explicitly.
 Other useful commands:
 
 ```text
-poetry run pytest --collect-only -q
-poetry run pytest --collect-only -m framework -q
-poetry run pytest -m "functional and framework" --run-ui --headless -q
-poetry run ruff check src tests
-poetry run ruff format --check src tests
-poetry build
+python -m pytest --collect-only -q
+python -m pytest --collect-only -m framework -q
+python -m pytest -m "functional and framework" --run-ui --headless -q
+python -m ruff check src tests
+python -m ruff format --check src tests
+python -m pip wheel --no-build-isolation --no-deps . --wheel-dir dist
 ```
 
 The functional framework selection above runs the two local form/download checks.
@@ -238,7 +264,7 @@ Example in PowerShell:
 
 ```powershell
 $env:TEST_HEADLESS = "true"
-poetry run pytest -m "integration and ui" --run-ui -q
+python -m pytest -m "integration and ui" --run-ui -q
 Remove-Item Env:TEST_HEADLESS
 ```
 
@@ -294,40 +320,27 @@ The session log is `logs/test-execution.log`. Failure attachments currently cove
 the pytest `call` phase, and the baseline uses one log per session. Per-test log
 isolation, setup/teardown diagnostics, and parallel workers are future extensions.
 
-`allure-results/` contains raw results, not an HTML website. To view them, install
-the [Allure 2 command line](https://allurereport.org/docs/v2/) and Java 17. CI uses
-the following CLI version (requires Node.js/npm):
-
-```text
-npm install --global allure-commandline@2.43.0
-```
-
-Then view or generate the report:
-
-```text
-allure serve allure-results
-allure generate allure-results --clean --output allure-report
-allure open allure-report
-```
-
-On Windows use `allure.cmd` if PowerShell blocks the `allure` script. Allure CLI is
-only needed to display/generate the report; pytest and raw attachments work without it.
-Run a fresh test command before inspecting results; starting another session clears
-the previous generated evidence.
+`allure-results/` contains raw JSON and attachment files. Inspect these directly
+with Python and a text/image viewer; generating a separate HTML report is optional.
+If an Allure CLI is already available, `allure serve allure-results` renders it.
+Installing Node, Java or a reporting CLI is not required for the task baseline.
+Starting another pytest session clears previous generated evidence, so retain
+important logs and attachments before continuing.
 
 ## Continuous integration
 
-`baseline.yml` checks Poetry metadata, Ruff, and the deterministic unit/integration
-suite with headless Chrome on Ubuntu and Windows for pull requests and `main`/`dev`
-pushes. Unit and integration tests use `-m unit` and `-m integration` in separate
+`baseline.yml` installs requirements with pip and checks dependency consistency,
+Ruff, package building, and the deterministic unit/integration suite with headless
+Chrome on Ubuntu and Windows for pull requests and `main`, `dev`, or
+`prep/pip-native-linux` pushes. Unit and integration tests use `-m unit` and `-m integration` in separate
 CI steps with separate JUnit reports.
 It uploads raw Allure results, JUnit XML, screenshots, and logs even on failures.
 
 `ui-tests.yml` runs the public smoke suite daily at 04:00 UTC or manually. Manual
 choices are `smoke` (`example and smoke`), `local` (`integration and ui`), and
-`all` (every test). It also generates and uploads a static
-Allure report. These workflows require no stored credentials for the current tests.
+`all` (every test). It uploads raw
+Allure results and diagnostic files. These workflows require no stored credentials for the current tests.
 
-Install the optional pre-commit checks with `poetry run pre-commit install`.
+Install the optional pre-commit checks with `python -m pre_commit install`.
 They run Ruff and pytest collection. Collection validates discovery without starting
 browsers or deleting the preceding run's evidence.

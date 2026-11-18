@@ -25,13 +25,13 @@ example application.
 
 | Suite | Marker expression | Command |
 | --- | --- | --- |
-| Framework unit tests (37) | `unit` | `poetry run pytest -m unit -q` |
-| Framework component integration, without Chrome (7) | `integration and not ui` | `poetry run pytest -m "integration and not ui" -q` |
-| All framework integration, including real Chrome (10) | `integration` | `poetry run pytest -m integration --run-ui --headless -q` |
-| Local browser integration (3) | `integration and ui` | `poetry run pytest -m "integration and ui" --run-ui --headless -q` |
-| All framework capabilities (47) | `framework` | `poetry run pytest -m framework --run-ui --headless -q` |
-| Local functional checks (2) | `functional and framework` | `poetry run pytest -m "functional and framework" --run-ui --headless -q` |
-| Public application UI example (1) | `example` | `poetry run pytest -m example --run-ui --headless -q` |
+| Framework unit tests (37) | `unit` | `python -m pytest -m unit -q` |
+| Framework component integration, without Chrome (7) | `integration and not ui` | `python -m pytest -m "integration and not ui" -q` |
+| All framework integration, including real Chrome (10) | `integration` | `python -m pytest -m integration --run-ui --headless -q` |
+| Local browser integration (3) | `integration and ui` | `python -m pytest -m "integration and ui" --run-ui --headless -q` |
+| All framework capabilities (47) | `framework` | `python -m pytest -m framework --run-ui --headless -q` |
+| Local functional checks (2) | `functional and framework` | `python -m pytest -m "functional and framework" --run-ui --headless -q` |
+| Public application UI example (1) | `example` | `python -m pytest -m example --run-ui --headless -q` |
 
 Markers control selection; directories only organize source files. See the
 [marker reference and classification rules](../README.md#test-markers) for the full
@@ -42,13 +42,14 @@ The example application test remains a separate `ui`/`example`/`functional`/`smo
 demonstrates how a project consumes the framework. It is not required to verify
 the framework against the local fixture. The `e2e` marker is registered for complete
 user journeys; no such journey is implemented yet. An empty selection exits with
-code 5. Use `poetry run pytest --collect-only -m framework -q` to preview selection.
+code 5. Use `python -m pytest --collect-only -m framework -q` to preview selection.
 
 ## Setup, configuration, and evidence
 
-- [Poetry installation and build instructions](../README.md#setup-with-poetry),
-  [pyproject.toml](../pyproject.toml), [poetry.lock](../poetry.lock), and
-  [checkout-local Poetry environment](../poetry.toml).
+- [pip setup and restricted-network installation](../README.md#setup-with-pip),
+  [project metadata](../pyproject.toml), [runtime requirements](../requirements.txt),
+  [development requirements](../requirements-dev.txt), and [constraints](../constraints.txt).
+- [Native Linux service commands and prerequisites](native-linux.md).
 - [Configuration values and precedence](../README.md#configuration),
   [runtime defaults](../config/default.yaml), and [project-relative paths](../src/project.py).
 - [Logs, screenshots, cleanup, Allure report commands, and limitations](../README.md#evidence-and-reports).
@@ -63,6 +64,6 @@ code 5. Use `poetry run pytest --collect-only -m framework -q` to preview select
 ## Planned extensions
 
 The [next-task table](../README.md#what-the-next-tasks-add) separates current
-capabilities from the REST and PostgreSQL/SSH additions. Neither new client exists
+capabilities from the independent client, evidence and parallel additions. The new clients do not exist
 in this starting baseline. Keep their future unit tests and integration checks
 separate from application UI examples, and register new markers before using them.

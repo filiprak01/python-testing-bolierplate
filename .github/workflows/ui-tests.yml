@@ -24,18 +24,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Install tools and locked dependencies
+      - name: Install pip dependencies
         run: |
-          python -m pip install poetry==2.3.0
-          poetry install --no-interaction
-          npm install --global allure-commandline@2.43.0
+          python -m pip install -r requirements-dev.txt
+          python -m pip install --no-build-isolation -e .
       - name: Run the selected suite
         shell: bash
         env:
@@ -44,14 +36,11 @@ jobs:
           set -euo pipefail
           args=(--run-ui --headless --alluredir=allure-results)
           case "$SUITE" in
-            smoke) poetry run pytest -m "example and smoke" "${args[@]}" ;;
-            local) poetry run pytest -m "integration and ui" "${args[@]}" ;;
-            all) poetry run pytest "${args[@]}" ;;
+            smoke) python -m pytest -m "example and smoke" "${args[@]}" ;;
+            local) python -m pytest -m "integration and ui" "${args[@]}" ;;
+            all) python -m pytest "${args[@]}" ;;
             *) echo "Unknown suite: $SUITE"; exit 1 ;;
           esac
-      - name: Generate Allure report
-        if: ${{ always() && hashFiles('allure-results/**') != '' }}
-        run: allure generate allure-results --clean --output allure-report
       - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4
