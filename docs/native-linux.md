@@ -1,75 +1,87 @@
-# Native Linux services
+# Evaluation environment and supplied services
 
-These commands support a supplied Linux VM or runner. They do not use a container
-runtime. The Python library still needs Python 3.12+; inspect the actual image first.
+## Confirmed tool contract
 
-## Preflight
+The target supplies Python 3.12, Node 22/npm, git, Chrome and Playwright,
+plus PostgreSQL, MariaDB, Redis and SQLite. Python/npm packages come from the
+environment's mirror, which may lack newer or unusual releases.
+Other supplied tools include gcc, clang, CMake, Rust/cargo, Go standard library,
+Java 21/Maven/Gradle, .NET 8, gdb, tmux and vim. These tasks use Python and the
+existing Node UI; the other language stacks are unnecessary.
+
+System package installation, containers, Go modules, NuGet, Ruby gems and native
+desktop toolkits are outside this toolset. Do not add those prerequisites.
+
+## Preflight without installation
 
 ```bash
 python3 --version
+python3 scripts/environment_probe.py
 python3 -m pip --version
-command -v ssh
-command -v sftp
-command -v ssh-keygen
-command -v pg_isready
-command -v psql
-test -x /usr/sbin/sshd
+node --version
+npm --version
 ```
 
-Missing service tools do not mean the Python client is broken. On a Debian/Ubuntu
-machine with permitted package installation and administrative access:
+Run the probe in the actual target. It reports installed packages/commands only,
+without downloading, changing services or reading credentials. Use the supplied
+mirror; do not replace it with another index or disable TLS validation.
+
+`requirements.txt` is the newer reference profile; `requirements-compatible.txt`
+is a separate older profile. Do not mix their pins/constraints. Install the
+chosen profile, run pip check, record pip freeze and rerun the actual tests.
+Neither profile guarantees that every dependency exists on the target mirror.
+Ruff/pre-commit are optional development tools, not mandatory task dependencies.
+
+## Provided databases
+
+Keep the PostgreSQL work already in progress. Use supplied connection information
+and the platform's service controls. A tool being installed does not guarantee
+an already running daemon, a particular port, or administrative service access.
 
 ```bash
-sudo apt-get update
-sudo apt-get install --no-install-recommends openssh-server openssh-client postgresql postgresql-client
+pg_isready -h "$PGHOST" -p "$PGPORT" -t 5
+psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -c 'SELECT 1;'
 ```
 
-Skip installation for services already supplied. Record package/privilege/network
-blockers rather than replacing a real-service test with a claimed mock pass.
+Set these variables from the actual environment. Verify authentication, synthetic
+seed data and read-only permissions separately. Do not alter other users' data.
+The two operator-UI ideas use the existing file-backed API and need no database.
 
-## Existing PostgreSQL task
+## Chrome, Playwright and Selenium
 
-Keep its current implementation and SQL fixture. Prefer an existing service:
+Locate the supplied Playwright binding/CLI and reuse the installed browser.
+With its Python binding, `p.chromium.launch(channel="chrome", headless=True)`
+uses installed Chrome. Do not download another browser or system dependencies.
 
-```bash
-sudo service postgresql start
-pg_isready -h 127.0.0.1 -p 5432 -t 5
-```
+ChromeDriver is not guaranteed by the tool list. Existing Selenium UI checks
+need a compatible driver; inspect the probe before enabling --run-ui. The factory
+accepts driver_path for a provided driver. Do not count a Playwright check as a
+Selenium WebDriver pass. If a driver is unavailable and resolver downloads are
+blocked, report that UI lane as blocked. The 37 unit and 7 non-UI component checks
+remain separate. Do not require driver downloads from outside the allowed source.
 
-If systemd is available, `sudo systemctl start postgresql` is an alternative.
-Readiness only proves the server responds; separately verify authentication,
-the synthetic seed row and the read-only role with the task's actual tests.
-Do not drop existing databases or change other users' authentication configuration.
-Use task-specific database/role names and retain only synthetic fixtures.
+## SSH/SFTP eligibility
 
-## OpenSSH and SFTP
+An SSH server is not guaranteed. Before selecting the task, check for an
+authorized endpoint and an available mirrored client library. Paramiko is one
+client choice. A mirrored AsyncSSH package can provide both client and loopback
+SSH/SFTP server functionality in ordinary Python processes, without a system
+daemon or administrative package installation.
 
-Use an authorized host/service or an isolated loopback fixture. For a supplied
-system service, `sudo service ssh start` starts OpenSSH on Debian/Ubuntu.
-Some distributions use the service name `sshd`; use the image's actual service.
-Configure key authentication for a dedicated test identity and verify the known
-host key from a trusted fixture or administrator. Do not copy personal keys.
+Keep a Python fixture small: disposable keys, loopback listener on an available
+port, a test-owned directory, real SFTP, and a finite synthetic processor reading
+the uploaded files. Delegate the SSH/SFTP protocols to the library. Verify host
+key rejection, actual transfers/output and owned-process shutdown.
 
-For an isolated fixture, keep its config, host/client keys, PID, logs and data
-under an ignored `.local/ssh-fixture/` directory. Use a separate high port and
-`ListenAddress 127.0.0.1`; do not replace `/etc/ssh/sshd_config`. The agreed fixture
-must define `Subsystem sftp internal-sftp` and an authorized test account.
-Validate its generated config before starting:
+Only an existing authorized endpoint or a working mirrored-library fixture
+qualifies as real SSH/SFTP integration. If neither is available, record the
+environment blocker. Unit mocks do not substitute for that integration result.
 
-```bash
-sudo /usr/sbin/sshd -t -f "$PWD/.local/ssh-fixture/sshd_config"
-```
+## Parallel and frontend checks
 
-The remaining SSH/SFTP task must deliver the exact fixture startup/readiness/stop
-commands and test account/key provisioning for the evaluation image. The client
-and fixture are proposed feature work, not implemented in this baseline. A
-non-systemd image can run a dedicated sshd process with `-D -f CONFIG -E LOG`.
-Stop only the PID owned by that fixture and remove only its task-owned scratch data.
-
-## Remote processing contract
-
-The SSH/SFTP client task uploads synthetic input into a unique task-owned remote
-directory, runs an agreed finite processing command, captures exit status plus
-bounded stdout/stderr, downloads the result and verifies its bytes/checksum.
-An SSH channel timeout alone does not prove a remote process was killed. Agree
-the remote process deadline and cleanup mechanism explicitly and verify it.
+Check pytest-xdist on the mirror before choosing parallel execution; do not build
+a replacement runner if missing. Real Selenium parallel checks also depend on
+the driver preflight. For the React UI ideas, use Node 22's built-in node --test
+for focused helper tests after compiling with the existing TypeScript compiler.
+Use the provided Playwright/Chrome for browser checks. No additional test framework
+is required. Retain the committed npm lockfile and record mirror failures.

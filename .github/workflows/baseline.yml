@@ -15,7 +15,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            profile: reference
+          - os: windows-latest
+            profile: reference
+          - os: ubuntu-latest
+            profile: compatible
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -24,14 +30,22 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pip dependencies
+        if: matrix.profile == 'reference'
         run: |
           python -m pip install -r requirements-dev.txt
           python -m pip install --no-build-isolation -e .
+      - name: Install older compatible dependencies
+        if: matrix.profile == 'compatible'
+        run: |
+          python -m pip install -r requirements-compatible.txt "setuptools>=69" wheel ruff==0.16.3
+          python -m pip install --no-build-isolation --no-deps -e .
+      - name: Report environment without changing it
+        run: python scripts/environment_probe.py
       - name: Check metadata and Python quality
         run: |
           python -m pip check
-          python -m ruff check src tests
-          python -m ruff format --check src tests
+          python -m ruff check src tests scripts
+          python -m ruff format --check src tests scripts
           python -m pip wheel --no-build-isolation --no-deps . --wheel-dir dist
       - name: Run unit tests
         run: python -m pytest -m unit --junitxml=test-results/unit.xml -q
@@ -41,7 +55,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: baseline-${{ matrix.os }}-${{ github.run_number }}
+          name: baseline-${{ matrix.os }}-${{ matrix.profile }}-${{ github.run_number }}
           path: |
             test-results/
             allure-results/

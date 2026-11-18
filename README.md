@@ -65,6 +65,7 @@ Linux, from the checkout root:
 
 ```bash
 python3 --version
+python3 scripts/environment_probe.py
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip --version
@@ -83,6 +84,40 @@ previously verified transitive versions without installing unused packages.
 The editable install uses those already installed build tools, so it does not
 start a second isolated build-tool download. Runtime versions remain those of
 the verified baseline; build tools have minimum versions and are checked by pip.
+
+### Restricted mirror profile
+
+The target has Python 3.12, Node 22/npm, Chrome/Playwright and the listed database
+tools. Follow the [exact tool contract](docs/native-linux.md); an SSH daemon and
+ChromeDriver are not guaranteed. No system-package installation is part of setup.
+
+If the mirror lacks newer reference pins, use this separate older profile:
+
+```bash
+python -m pip install -r requirements-compatible.txt
+python -m pip check
+python -m pip freeze
+python -m pytest -m unit -q
+python -m pytest -m "integration and not ui" -q
+```
+
+It uses Selenium 4.27.1, pytest 8.3.4, allure-pytest 2.13.5, PyYAML 6.0.2 and
+python-dotenv 1.0.1. The existing 37 unit and 10 integration checks were verified
+with this profile as well as the newer reference profile. Target mirror availability
+is a separate check. Do not combine the compatible profile with reference
+constraints or development requirements, which pin different versions.
+
+pytest can run directly from this source checkout because pytest.ini supplies
+the src path. The editable installation/package build is optional for those checks.
+Use it when compatible setuptools/wheel are already available or mirrored:
+
+```bash
+python -m pip install --no-build-isolation --no-deps -e .
+python -m pip check
+```
+
+Ruff and pre-commit are optional quality tools. Do not install a separate manager
+or replace a missing mirrored package with an unapproved download source.
 
 If a dependency is rejected, record its name and the actual error. Use only the
 index or wheelhouse supplied by the environment. With an approved local wheelhouse,
@@ -185,6 +220,10 @@ framework is broken; inspect the attached evidence and reproduce it locally.
 Selenium Manager obtains the driver matching your installed Chrome. Its first run
 requires network access; subsequent runs can use the cached driver. The factory also
 accepts `driver_path` for environments that provide ChromeDriver explicitly.
+This resolver download is not guaranteed in the target environment. Chrome alone
+does not provide WebDriver: check for a compatible permitted driver before the UI
+lane. Use supplied Playwright/Chrome for the separate operator-UI ideas; that does
+not count as a Selenium regression pass.
 
 Other useful commands:
 

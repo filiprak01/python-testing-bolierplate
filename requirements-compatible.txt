@@ -1,0 +1,7 @@
+# Older tested profile; check availability on the supplied mirror.
+# Do not combine with constraints.txt or requirements-dev.txt.
+selenium==4.27.1
+pytest==8.3.4
+allure-pytest==2.13.5
+PyYAML==6.0.2
+python-dotenv==1.0.1

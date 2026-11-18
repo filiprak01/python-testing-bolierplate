@@ -49,6 +49,8 @@ code 5. Use `python -m pytest --collect-only -m framework -q` to preview selecti
 - [pip setup and restricted-network installation](../README.md#setup-with-pip),
   [project metadata](../pyproject.toml), [runtime requirements](../requirements.txt),
   [development requirements](../requirements-dev.txt), and [constraints](../constraints.txt).
+- [Older compatible profile](../requirements-compatible.txt) and
+  [read-only environment probe](../scripts/environment_probe.py).
 - [Native Linux service commands and prerequisites](native-linux.md).
 - [Configuration values and precedence](../README.md#configuration),
   [runtime defaults](../config/default.yaml), and [project-relative paths](../src/project.py).
